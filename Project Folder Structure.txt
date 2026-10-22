@@ -1,0 +1,14 @@
+ai-study-tutor/
+│
+├── config.py             # Configuration and Environment variables
+├── firebase_setup.py     # Firebase Admin SDK initialization
+├── main.py               # FastAPI App entry point & Endpoints
+├── requirements.txt      # Python dependencies
+├── serviceAccountKey.json # Firebase Admin Private Key (from Firebase Console)
+│
+├── services/
+│   ├── pdf_service.py    # Extracts text & splits into Chunks
+│   └── rag_service.py    # Generating Embeddings & Vector Store operations
+│
+└── templates/            # Web Frontend (HTML/Tailwind)
+    └── index.html

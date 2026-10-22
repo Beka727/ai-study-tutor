@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interactive Tutor & Study Assistant</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-indigo-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fa-solid fa-graduation-cap mr-2"></i> AI Interactive Tutor</h1>
+            <span id="currentModuleStatus" class="text-sm bg-indigo-700 px-3 py-1 rounded-full">No Module Loaded</span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mx-auto mt-6 p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- Left Column: Upload & Short Notes -->
+        <div class="md:col-span-1 space-y-6">
+            <!-- Upload Box -->
+            <div class="bg-white p-5 rounded-xl shadow-md">
+                <h2 class="text-lg font-semibold text-gray-700 mb-3"><i class="fa-solid fa-file-pdf text-red-500 mr-2"></i> Upload Module (PDF)</h2>
+                <input type="text" id="userId" placeholder="Enter User ID (e.g. user_123)" class="w-full p-2 border rounded-lg mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="file" id="pdfFile" accept=".pdf" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-3">
+                <button onclick="uploadModule()" id="uploadBtn" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-medium">Upload & Summarize</button>
+                <div id="uploadLoader" class="hidden text-center mt-3 text-indigo-600 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Processing PDF & generating notes...</div>
+            </div>
+
+            <!-- Short Notes Box -->
+            <div class="bg-white p-5 rounded-xl shadow-md">
+                <h2 class="text-lg font-semibold text-gray-700 mb-3"><i class="fa-solid fa-book-open text-indigo-500 mr-2"></i> Short Notes</h2>
+                <div id="shortNotesContent" class="text-sm text-gray-600 h-64 overflow-y-auto border p-3 rounded-lg bg-gray-50 whitespace-pre-line">
+                    Upload a module PDF to view AI-generated summary and key concepts here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Q&A Chat & Quiz Section -->
+        <div class="md:col-span-2 space-y-6">
+            
+            <!-- Q&A Section -->
+            <div class="bg-white p-5 rounded-xl shadow-md flex flex-col h-80">
+                <h2 class="text-lg font-semibold text-gray-700 mb-3"><i class="fa-solid fa-comments text-green-500 mr-2"></i> Ask AI Tutor</h2>
+                <div id="chatHistory" class="flex-1 border p-3 rounded-lg overflow-y-auto bg-gray-50 space-y-3 mb-3 text-sm">
+                    <div class="text-gray-400 text-center">Ask any question related to the uploaded module.</div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="questionInput" placeholder="Type your question here..." class="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="askQuestion()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+
+            <!-- Quiz Section -->
+            <div class="bg-white p-5 rounded-xl shadow-md">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-gray-700"><i class="fa-solid fa-clipboard-question text-orange-500 mr-2"></i> Practice Quiz</h2>
+                    <button onclick="generateQuiz()" class="bg-orange-500 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-orange-600 transition">Generate Quiz</button>
+                </div>
+                <div id="quizContainer" class="text-sm text-gray-600 space-y-4">
+                    Click "Generate Quiz" to test your understanding based on the module.
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let currentModuleId = null;
+        const API_BASE = "http://127.0.0.1:8000";
+
+        async function uploadModule() {
+            const userId = document.getElementById('userId').value.trim();
+            const fileInput = document.getElementById('pdfFile').files[0];
+            
+            if (!userId || !fileInput) {
+                alert("Please enter User ID and select a PDF file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput);
+
+            document.getElementById('uploadLoader').classList.remove('hidden');
+            document.getElementById('uploadBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/upload-module/?user_id=${userId}`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentModuleId = data.module_id;
+                    document.getElementById('currentModuleStatus').innerText = "Module Loaded: " + fileInput.name;
+                    document.getElementById('shortNotesContent').innerText = data.short_notes;
+                    alert("Module successfully uploaded and processed!");
+                } else {
+                    alert("Error: " + data.detail);
+                }
+            } catch (error) {
+                console.error("Upload error:", error);
+                alert("Failed to connect to backend server.");
+            } finally {
+                document.getElementById('uploadLoader').classList.add('hidden');
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        async function askQuestion() {
+            const questionText = document.getElementById('questionInput').value.trim();
+            if (!questionText) return;
+            if (!currentModuleId) {
+                alert("Please upload a module first!");
+                return;
+            }
+
+            const chatHistory = document.getElementById('chatHistory');
+            chatHistory.innerHTML += `<div class="text-right"><span class="bg-indigo-100 text-indigo-800 p-2 rounded-lg inline-block"><b>You:</b> ${questionText}</span></div>`;
+            document.getElementById('questionInput').value = "";
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            try {
+                const response = await fetch(`${API_BASE}/ask-question/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ module_id: currentModuleId, question: questionText })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    chatHistory.innerHTML += `<div><span class="bg-gray-200 text-gray-800 p-2 rounded-lg inline-block"><b>AI Tutor:</b> ${data.answer}</span></div>`;
+                } else {
+                    chatHistory.innerHTML += `<div><span class="bg-red-100 text-red-800 p-2 rounded-lg inline-block"><b>Error:</b> ${data.detail}</span></div>`;
+                }
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } catch (error) {
+                console.error("Q&A error:", error);
+            }
+        }
+
+        async function generateQuiz() {
+            if (!currentModuleId) {
+                alert("Please upload a module first!");
+                return;
+            }
+
+            const quizContainer = document.getElementById('quizContainer');
+            quizContainer.innerHTML = `<div class="text-center text-indigo-600"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating quiz questions...</div>`;
+
+            try {
+                const response = await fetch(`${API_BASE}/generate-quiz/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ module_id: currentModuleId })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    quizContainer.innerHTML = "";
+                    data.quizzes.forEach((q, index) => {
+                        let optionsHtml = q.options.map(opt => 
+                            `<label class="block"><input type="radio" name="q_${index}" value="${opt}" class="mr-2"> ${opt}</label>`
+                        ).join('');
+
+                        quizContainer.innerHTML += `
+                            <div class="border p-3 rounded-lg bg-gray-50 space-y-2" id="quiz_box_${index}">
+                                <p class="font-medium text-gray-800">Q${index + 1}: ${q.question}</p>
+                                <div class="space-y-1">${optionsHtml}</div>
+                                <button onclick="submitQuiz('${data.quiz_ids[index]}', '${q.question.replace(/'/g, "\\'")}', '${q.correct_answer.replace(/'/g, "\\'")}', ${index})" class="mt-2 bg-indigo-600 text-white text-xs px-3 py-1 rounded hover:bg-indigo-700">Submit Answer</button>
+                                <div id="feedback_${index}" class="text-xs mt-1 font-semibold"></div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    quizContainer.innerHTML = `<p class="text-red-500">Failed to load quizzes.</p>`;
+                }
+            } catch (error) {
+                console.error("Quiz error:", error);
+                quizContainer.innerHTML = `<p class="text-red-500">Server error while generating quiz.</p>`;
+            }
+        }
+
+        async function submitQuiz(quizId, question, correctAnswer, index) {
+            const selectedOption = document.querySelector(`input[name="q_${index}"]:checked`);
+            if (!selectedOption) {
+                alert("Please select an option!");
+                return;
+            }
+
+            const userId = document.getElementById('userId').value.trim() || "anonymous";
+            const userAnswer = selectedOption.value;
+
+            try {
+                const response = await fetch(`${API_BASE}/submit-quiz/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        quiz_id: quizId,
+                        question: question,
+                        correct_answer: correctAnswer,
+                        user_answer: userAnswer
+                    })
+                });
+                const data = await response.json();
+
+                const feedbackDiv = document.getElementById(`feedback_${index}`);
+                if (data.is_correct) {
+                    feedbackDiv.className = "text-xs mt-1 font-semibold text-green-600";
+                    feedbackDiv.innerText = "✓ Correct! " + data.feedback;
+                } else {
+                    feedbackDiv.className = "text-xs mt-1 font-semibold text-red-600";
+                    feedbackDiv.innerText = "✗ Incorrect. " + data.feedback;
+                }
+            } catch (error) {
+                console.error("Submission error:", error);
+            }
+        }
+    </script>
+</body>
+</html>
